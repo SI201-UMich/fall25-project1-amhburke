@@ -18,10 +18,23 @@ def load_penguins(csv_file):
     return penguins
 
 penguins = load_penguins('penguins.csv')
-print(penguins)
+#print(penguins)
 
 def get_penguin_species(penguins):
     """Creates a dictionary of only Adelie penguins information"""
+    adelie_penguins = {}
+    index = 0
+
+    for penguin in penguins:
+        if penguin["species"] == "Adelie":
+            adelie_penguins[index] = penguin
+            index += 1
+
+    return adelie_penguins
+
+print(get_penguin_species(penguins))
+
+
 
 def average_flipper_length(adelie_penguins):
     """Calculates the average flipper length of Adelie penguins"""
