@@ -12,7 +12,8 @@ def load_penguins(csv_file):
             penguin = {
                 "species": row["species"],
                 "flipper_length_mm": row["flipper_length_mm"], 
-                "body_mass_g": row["body_mass_g"] 
+                "body_mass_g": row["body_mass_g"],
+                "island": row["island"]
             }
             penguins.append(penguin)
     return penguins
@@ -52,12 +53,45 @@ def average_flipper_length(adelie_penguins):
     average_length = total_length / count
     return round(average_length, 2)
 
-penguins = load_penguins('penguins.csv')             
-adelie_penguins = get_penguin_species(penguins)      
-print(average_flipper_length(adelie_penguins)) 
+#penguins = load_penguins('penguins.csv')             
+#adelie_penguins = get_penguin_species(penguins)      
+#print(average_flipper_length(adelie_penguins)) 
 
 def find_above_average(adelie_penguins, average_length, island):
     """Finds all the Adelie penguins on Biscoe island and returns the percentage that have above average flipper length"""
+    total_on_island = 0
+    above_count = 0
+
+    for penguin in adelie_penguins.values():
+        if penguin.get("island") != island:
+            continue
+
+        flipper = penguin.get("flipper_length_mm")
+        if not flipper:
+            continue
+
+        s = str(flipper).strip()
+        if s.upper() in ("NA", "N/A", "NAN", "NULL"):
+            continue
+
+        try:
+            length = float(s)
+        except ValueError:
+            continue
+
+        total_on_island += 1
+        if length > average_length:
+            above_count += 1
+
+    if total_on_island == 0:
+        return 0.0
+
+    percentage = (above_count / total_on_island) * 100.0
+    return round(percentage, 1)
+
+adelie_penguins = get_penguin_species(penguins)      
+print(find_above_average(adelie_penguins, 189.95, "Biscoe"))
+
 
 def results(average, percentage):
     """Writes the calculated average and percentage aboce average to a text file"""
