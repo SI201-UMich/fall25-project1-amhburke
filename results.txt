@@ -1,0 +1,2 @@
+Average Adelie flipper length: 189.9 mm
+Percent above average on Biscoe: 50.0%

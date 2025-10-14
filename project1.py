@@ -89,9 +89,38 @@ def find_above_average(adelie_penguins, average_length, island):
     percentage = (above_count / total_on_island) * 100.0
     return round(percentage, 1)
 
-adelie_penguins = get_penguin_species(penguins)      
-print(find_above_average(adelie_penguins, 189.95, "Biscoe"))
+#adelie_penguins = get_penguin_species(penguins)      
+#print(find_above_average(adelie_penguins, 189.95, "Biscoe"))
 
 
-def results(average, percentage):
-    """Writes the calculated average and percentage aboce average to a text file"""
+def results(average, percentage, filename="results.txt"):
+    """Writes the calculated average and percentage above average to a text file."""
+    # Coerce inputs to floats if possible
+    try:
+        avg = float(average)
+    except (TypeError, ValueError):
+        avg = None
+
+    try:
+        pct = float(percentage)
+    except (TypeError, ValueError):
+        pct = None
+
+    lines = []
+    if avg is not None:
+        lines.append(f"Average Adelie flipper length: {avg:.1f} mm")
+    else:
+        lines.append("Average Adelie flipper length: N/A")
+
+    if pct is not None:
+        lines.append(f"Percent above average on Biscoe: {pct:.1f}%")
+    else:
+        lines.append("Percent above average on Biscoe: N/A")
+
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+adelie_penguins = get_penguin_species(penguins)
+avg = average_flipper_length(adelie_penguins)
+pct = find_above_average(adelie_penguins, avg, "Biscoe")
+results(avg, pct)  
