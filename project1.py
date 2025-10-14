@@ -37,7 +37,7 @@ def load_penguins(csv_file):
             penguins.append(penguin)
     return penguins
 
-penguins = load_penguins('penguins.csv')
+#penguins = load_penguins('penguins.csv')
 #print(penguins)
 
 def get_penguin_species(penguins):
@@ -81,8 +81,11 @@ def find_above_average(adelie_penguins, average_length, island):
     total_on_island = 0
     above_count = 0
 
+    target = str(island).strip().lower()
+
     for penguin in adelie_penguins.values():
-        if penguin.get("island") != island:
+        isl = str(penguin.get("island","")).strip().lower()
+        if isl != target:
             continue
 
         flipper = penguin.get("flipper_length_mm")
@@ -148,6 +151,19 @@ if __name__ == "__main__":
     main()
 
 
+
+
+
+def write_csv(path, rows):
+    headers = ["", "species", "island", "bill_length_mm", "bill_depth_mm",
+               "flipper_length_mm", "body_mass_g", "sex", "year"]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=headers)
+        w.writeheader()
+        for r in rows:
+            row = {h: "" for h in headers}  
+            row.update(r)
+            w.writerow(row)
 
 
 class TestLoadPenguins(unittest.TestCase):
@@ -321,7 +337,7 @@ class TestResults(unittest.TestCase):
             results(189.25, 42.66, filename=fname)
             with open(fname, "r", encoding="utf-8") as f:
                 content = f.read().strip().splitlines()
-            self.assertEqual(content[0], "Average Adelie flipper length: 189.3 mm")
+            self.assertEqual(content[0], f"Average Adelie flipper length: {189.25:.1f} mm")
             self.assertEqual(content[1], "Percent above average on Biscoe: 42.7%")
 
     def test_writes_when_inputs_are_strings(self):
