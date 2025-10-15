@@ -155,19 +155,20 @@ if __name__ == "__main__":
 
 
 def write_csv(path, rows):
+    """Helper to write a penguins CSV with standard headers."""
     headers = ["", "species", "island", "bill_length_mm", "bill_depth_mm",
                "flipper_length_mm", "body_mass_g", "sex", "year"]
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=headers)
-        w.writeheader()
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
         for r in rows:
-            row = {h: "" for h in headers}  
-            row.update(r)
-            w.writerow(row)
+            base = {h: "" for h in headers}
+            base.update(r)
+            writer.writerow(base)
 
 
 class TestLoadPenguins(unittest.TestCase):
-    def test_basic_load_returns_expected_fields(self):
+    def test_basic_load_expected_fields(self):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tf:
             write_csv(tf.name, [
                 {"": "1", "species": "Adelie", "island": "Biscoe",
@@ -181,20 +182,6 @@ class TestLoadPenguins(unittest.TestCase):
             self.assertEqual(set(data[0].keys()),
                              {"species", "flipper_length_mm", "body_mass_g", "island"})
             self.assertEqual(data[0]["species"], "Adelie")
-            self.assertEqual(data[1]["flipper_length_mm"], "210")
-        finally:
-            os.remove(tf.name)
-
-    def test_handles_missing_flipper_length(self):
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tf:
-            write_csv(tf.name, [
-                {"": "1", "species": "Adelie", "island": "Dream",
-                 "flipper_length_mm": "", "body_mass_g": "3800"},
-            ])
-        try:
-            data = load_penguins(tf.name)
-            self.assertEqual(len(data), 1)
-            self.assertEqual(data[0]["flipper_length_mm"], "")
         finally:
             os.remove(tf.name)
 
@@ -213,15 +200,26 @@ class TestLoadPenguins(unittest.TestCase):
         finally:
             os.remove(tf.name)
 
-    def test_preserves_island_value(self):
+    def test_handles_missing_numeric_fields(self):
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tf:
             write_csv(tf.name, [
-                {"": "1", "species": "Adelie", "island": "Biscoe",
-                 "flipper_length_mm": "191", "body_mass_g": "3700"},
+                {"": "1", "species": "Adelie", "island": "Dream",
+                 "flipper_length_mm": "", "body_mass_g": ""},
             ])
         try:
             data = load_penguins(tf.name)
-            self.assertEqual(data[0]["island"], "Biscoe")
+            self.assertEqual(len(data), 1)
+            self.assertEqual(data[0]["flipper_length_mm"], "")
+            self.assertEqual(data[0]["body_mass_g"], "")
+        finally:
+            os.remove(tf.name)
+
+    def test_empty_csv_returns_empty_list(self):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tf:
+            write_csv(tf.name, rows=[])
+        try:
+            data = load_penguins(tf.name)
+            self.assertEqual(data, [])
         finally:
             os.remove(tf.name)
 
@@ -238,13 +236,6 @@ class TestGetPenguinSpecies(unittest.TestCase):
         for v in adelies.values():
             self.assertEqual(v["species"], "Adelie")
 
-    def test_no_adelie_returns_empty_dict(self):
-        penguins = [
-            {"species": "Chinstrap", "flipper_length_mm": "195", "body_mass_g": "3700", "island": "Dream"},
-        ]
-        adelies = get_penguin_species(penguins)
-        self.assertEqual(adelies, {})
-
     def test_index_keys_are_sequential(self):
         penguins = [
             {"species": "Adelie", "flipper_length_mm": "180", "body_mass_g": "3400", "island": "Biscoe"},
@@ -253,6 +244,13 @@ class TestGetPenguinSpecies(unittest.TestCase):
         ]
         adelies = get_penguin_species(penguins)
         self.assertEqual(set(adelies.keys()), {0, 1, 2})
+
+    def test_no_adelie_returns_empty_dict(self):
+        penguins = [
+            {"species": "Chinstrap", "flipper_length_mm": "195", "body_mass_g": "3700", "island": "Dream"},
+        ]
+        adelies = get_penguin_species(penguins)
+        self.assertEqual(adelies, {})
 
     def test_includes_entries_with_missing_fields(self):
         penguins = [
@@ -271,19 +269,21 @@ class TestAverageFlipperLength(unittest.TestCase):
         }
         self.assertEqual(average_flipper_length(adelies), 195.0)
 
-    def test_skips_NA(self):
+    def test_rounds_to_one_decimal(self):
         adelies = {
-            0: {"flipper_length_mm": "190"},
-            1: {"flipper_length_mm": "NA"},
+            0: {"flipper_length_mm": "189"},
+            1: {"flipper_length_mm": "189.5"},
+            2: {"flipper_length_mm": "190.0"},
         }
-        self.assertEqual(average_flipper_length(adelies), 190.0)
+        self.assertEqual(average_flipper_length(adelies), 189.5)
 
-    def test_skips_empty_string(self):
+    def test_skips_na_and_empty(self):
         adelies = {
-            0: {"flipper_length_mm": "180"},
+            0: {"flipper_length_mm": "NA"},
             1: {"flipper_length_mm": ""},
+            2: {"flipper_length_mm": "188"},
         }
-        self.assertEqual(average_flipper_length(adelies), 180.0)
+        self.assertEqual(average_flipper_length(adelies), 188.0)
 
     def test_returns_zero_when_no_valid_entries(self):
         adelies = {
@@ -302,45 +302,49 @@ class TestFindAboveAverage(unittest.TestCase):
             3: {"island": "Torgersen", "flipper_length_mm": "210"},
         }
         pct = find_above_average(adelies, average_length=190.0, island="Biscoe")
-        self.assertEqual(pct, 66.7)  # 2 of 3 -> 66.7%
+        self.assertEqual(pct, 66.7)  # 2 of 3
+
+    def test_equal_to_average_not_counted(self):
+        adelies = {
+            0: {"island": "Biscoe", "flipper_length_mm": "190"},
+            1: {"island": "Biscoe", "flipper_length_mm": "191"},
+            2: {"island": "Biscoe", "flipper_length_mm": "189"},
+        }
+        pct = find_above_average(adelies, average_length=190.0, island="Biscoe")
+        self.assertEqual(pct, 33.3)  # only 191 is above
 
     def test_island_matching_is_case_insensitive(self):
         adelies = {
-            0: {"island": "bIsCoE", "flipper_length_mm": "191"},
+            0: {"island": " bIsCoE ", "flipper_length_mm": "191"},
             1: {"island": "BISCOE", "flipper_length_mm": "170"},
         }
-        pct = find_above_average(adelies, average_length=190.0, island="biscoe")
+        pct = find_above_average(adelies, average_length=190.0, island="  biscoe ")
         self.assertEqual(pct, 50.0)
 
-    def test_skips_invalid_flipper_values_in_denominator(self):
+    def test_skips_invalid_and_handles_none_on_island(self):
         adelies = {
             0: {"island": "Biscoe", "flipper_length_mm": "NA"},
             1: {"island": "Biscoe", "flipper_length_mm": "195"},
-            2: {"island": "Biscoe", "flipper_length_mm": "180"},
+            2: {"island": "Biscoe", "flipper_length_mm": "bad"},
         }
         pct = find_above_average(adelies, average_length=190.0, island="Biscoe")
-        self.assertEqual(pct, 50.0)  # 1 of 2 valid entries
+        self.assertEqual(pct, 100.0)  
 
-    def test_returns_zero_when_no_penguins_on_island(self):
-        adelies = {
-            0: {"island": "Dream", "flipper_length_mm": "200"},
-        }
-        pct = find_above_average(adelies, average_length=190.0, island="Biscoe")
-        self.assertEqual(pct, 0.0)
+        adelies2 = {0: {"island": "Dream", "flipper_length_mm": "200"}}
+        self.assertEqual(find_above_average(adelies2, 190.0, "Biscoe"), 0.0)
 
 
 class TestResults(unittest.TestCase):
-    def test_writes_numbers_to_default_file(self):
+    def test_writes_numbers_to_file(self):
         with tempfile.TemporaryDirectory() as td:
             fname = os.path.join(td, "results.txt")
-            # patch: pass filename explicitly to avoid writing in CWD
             results(189.25, 42.66, filename=fname)
             with open(fname, "r", encoding="utf-8") as f:
-                content = f.read().strip().splitlines()
-            self.assertEqual(content[0], f"Average Adelie flipper length: {189.25:.1f} mm")
-            self.assertEqual(content[1], "Percent above average on Biscoe: 42.7%")
+                lines = f.read().strip().splitlines()
+            self.assertEqual(lines[0], "Average Adelie flipper length: 189.2 mm")
+            self.assertEqual(lines[1], "Percent above average on Biscoe: 42.7%")
 
-    def test_writes_when_inputs_are_strings(self):
+    def test_accepts_string_inputs(self):
         with tempfile.TemporaryDirectory() as td:
             fname = os.path.join(td, "results.txt")
             results("189.24", "43.34", filename=fname)
@@ -367,6 +371,7 @@ class TestResults(unittest.TestCase):
                 txt = f.read().strip()
             self.assertIn("Average Adelie flipper length: 190.0 mm", txt)
             self.assertIn("Percent above average on Biscoe: 50.0%", txt)
+
 
 
 if __name__ == "__main__":
