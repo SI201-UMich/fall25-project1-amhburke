@@ -1,3 +1,9 @@
+# Avery Burke
+# SI 206 Project 1
+# I worked alone on this assignment
+# I used AI to help with writing test cases, concept explanation, and code debugging
+
+
 import os
 import csv
 import unittest
